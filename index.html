@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reconocimiento de figuras</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 850px;
+      margin: 30px auto;
+      padding: 20px;
+      background: #f2f6fc;
+      color: #172033;
+    }
+    main {
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+    }
+    button {
+      padding: 10px 16px;
+      margin-top: 12px;
+      background: #155eef;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    img {
+      max-width: 100%;
+      margin-top: 16px;
+    }
+    li {
+      margin: 12px 0;
+    }
+    #estado { margin-top: 15px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Reconocimiento de figuras geométricas</h1>
+  <p>Sube una imagen con figuras sobre un fondo claro.</p>
+
+  <input id="archivo" type="file" accept="image/*">
+  <br>
+  <button id="procesar">Reconocer figuras</button>
+
+  <p id="estado">Esperando una imagen.</p>
+  <img id="vista" alt="Imagen seleccionada" hidden>
+
+  <h2>Resultados</h2>
+  <ul id="resultados"></ul>
+</main>
+
+<script>
+const archivo = document.getElementById("archivo");
+const vista = document.getElementById("vista");
+const estado = document.getElementById("estado");
+const lista = document.getElementById("resultados");
+
+archivo.addEventListener("change", () => {
+  const f = archivo.files[0];
+  if (!f) return;
+
+  vista.src = URL.createObjectURL(f);
+  vista.hidden = false;
+  lista.replaceChildren();
+  estado.textContent = "Imagen cargada.";
+});
+
+document.getElementById("procesar").addEventListener("click",
+  async () => {
+    const f = archivo.files[0];
+
+    if (!f) {
+      estado.textContent = "Primero selecciona una imagen.";
+      return;
+    }
+
+    estado.textContent = "Procesando imagen...";
+    lista.replaceChildren();
+
+    const datos = new FormData();
+    datos.append("imagen", f);
+
+    try {
+      const respuesta = await fetch("/recognize", {
+        method: "POST",
+        body: datos
+      });
+
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok || resultado.error) {
+        throw new Error(resultado.error || "Error al procesar.");
+      }
+
+      if (resultado.resultados.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "null: no se reconocieron figuras.";
+        lista.appendChild(li);
+      }
+
+      resultado.resultados.forEach((r, i) => {
+        const li = document.createElement("li");
+        li.textContent =
+          `Figura ${i + 1}: ${r.figura} | ` +
+          `Vértices: ${r.vertices} | ` +
+          `Área: ${r.area} | ` +
+          `Perímetro: ${r.perimetro} | ` +
+          `Circularidad: ${r.circularidad}`;
+        lista.appendChild(li);
+      });
+
+      estado.textContent =
+        `Análisis terminado. Figuras detectadas: ` +
+        resultado.resultados.length;
+    } catch (error) {
+      estado.textContent =
+        "Error: " + error.message +
+        ". Comprueba que el servidor Python esté activo.";
+    }
+  }
+);
+</script>
+</body>
+</html>
